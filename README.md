@@ -269,6 +269,36 @@ buffer, same accepted precedent as this package's own `GuiButtonGetText`
 (Round 1) - real `ComboBoxCurrentText` returns a freshly allocated
 string and the contract has no matching free function.
 
+## Widgets (Round 5) - ProgressBar, Slider
+
+Needed **zero** prerequisite native work - `eb-qt6` already had rich
+`ProgressBar`/`Slider` bindings.
+
+```basic
+DIM pb AS GuiProgressBar
+pb = NewGuiProgressBar()
+CALL GuiProgressBarSetRange(pb, 0, 200)
+CALL GuiProgressBarSetValue(pb, 150)
+
+DIM slider AS GuiSlider
+slider = NewGuiSlider(0)
+CALL GuiSliderSetRange(slider, 0, 200)
+CALL GuiSliderSetValue(slider, 150)
+```
+
+Direct pass-throughs throughout. `GuiSliderConnectValueChanged` passes
+the caller's own handler straight to `SliderConnectValueChanged` - the
+real native shim passes an extra `value AS INTEGER` the contract's
+1-param handler doesn't declare, safe per this ecosystem's established
+ABI rule (extra trailing args are ignored), same reasoning already
+used for `GuiCheckBoxConnectToggled`.
+
+**Real, confirmed-not-assumed default-value difference**: a freshly
+created `GuiProgressBar` reads `-1` here (real Qt's own documented
+"no value set yet" sentinel for `QProgressBar`), not `0` like
+`eb-gui-gtk4`'s own default - a genuine Qt convention, not a bug;
+`SetValue`/`SetRange` behave identically once called.
+
 ## Verifying
 
 Built and run via `ebc` directly (see "Building" above for why):
@@ -310,7 +340,9 @@ ebc examples/hello_window/src/main.bas -o hello_window \
   `GuiRadioButtonSetGroup` (real cross-container exclusivity via the
   lazily-created `ButtonGroup`)/`GuiComboBoxConnectChanged` (Round 4)
   all fire/round-trip correctly on a genuine programmatic state change;
-  and - genuinely exercised this time,
+  `GuiProgressBarSetRange`/`SetValue`/`GetValue` and
+  `GuiSliderSetRange`/`SetValue`/`GetValue`/`ConnectValueChanged`
+  (Round 5) round-trip correctly; and - genuinely exercised this time,
   closing a gap this file used to flag - `GuiTimer` driving a real,
   running-loop `GuiApplicationQuit` (a single-shot timer's own callback
   calls it): the program exiting promptly rather than hanging proves

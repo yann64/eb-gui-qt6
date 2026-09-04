@@ -221,6 +221,30 @@ CALL GuiComboBoxSetSelectedIndex(combo, 0)
 PRINT "combo changed count: ", comboChangedCount
 PRINT "Round 4 widgets (CheckBox/RadioButton/ComboBox) ran without crashing"
 
+' 9. Round 5: ProgressBar/Slider.
+DIM pb AS GuiProgressBar
+pb = NewGuiProgressBar()
+PRINT "progress bar initial: ", GuiProgressBarGetValue(pb)
+CALL GuiProgressBarSetRange(pb, 0, 200)
+CALL GuiProgressBarSetValue(pb, 150)
+PRINT "progress bar after range 0-200, set 150: ", GuiProgressBarGetValue(pb)
+
+DIM sliderWidget AS GuiSlider
+sliderWidget = NewGuiSlider(0)
+CALL GuiSliderSetRange(sliderWidget, 0, 200)
+CALL GuiSliderSetValue(sliderWidget, 150)
+PRINT "sliderWidget after range 0-200, set 150: ", GuiSliderGetValue(sliderWidget)
+
+DIM sliderChangedCount AS INTEGER
+sliderChangedCount = 0
+SUB OnSliderValueChanged(userData AS ANY PTR)
+    sliderChangedCount = sliderChangedCount + 1
+END SUB
+CALL GuiSliderConnectValueChanged(sliderWidget, @OnSliderValueChanged, 0)
+CALL GuiSliderSetValue(sliderWidget, 75)
+PRINT "sliderWidget changed count: ", sliderChangedCount
+PRINT "Round 5 widgets (ProgressBar/Slider) ran without crashing"
+
 ' 5. GuiTimer, and (via its own callback) GuiApplicationQuit stopping
 ' GuiApplicationRun - this finally closes the gap this file's own
 ' comment used to flag: GuiTimer is now part of the contract itself, so

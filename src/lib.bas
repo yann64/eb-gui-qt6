@@ -708,3 +708,64 @@ SUB GuiComboBoxConnectChanged(cb AS GuiComboBox, handler AS ANY PTR, userData AS
     realCombo.handle = cb.handle
     CALL ComboBoxConnectCurrentIndexChanged(realCombo, handler, userData)
 END SUB
+
+FUNCTION NewGuiProgressBar() AS GuiProgressBar
+    DIM realPb AS ProgressBar
+    realPb = NewProgressBar()
+    DIM result AS GuiProgressBar
+    result.handle = realPb.handle
+    NewGuiProgressBar = result
+END FUNCTION
+
+SUB GuiProgressBarSetRange(pb AS GuiProgressBar, min AS INTEGER, max AS INTEGER)
+    DIM realPb AS ProgressBar
+    realPb.handle = pb.handle
+    CALL ProgressBarSetRange(realPb, min, max)
+END SUB
+
+FUNCTION GuiProgressBarGetValue(pb AS GuiProgressBar) AS INTEGER
+    DIM realPb AS ProgressBar
+    realPb.handle = pb.handle
+    GuiProgressBarGetValue = ProgressBarValue(realPb)
+END FUNCTION
+
+SUB GuiProgressBarSetValue(pb AS GuiProgressBar, value AS INTEGER)
+    DIM realPb AS ProgressBar
+    realPb.handle = pb.handle
+    CALL ProgressBarSetValue(realPb, value)
+END SUB
+
+FUNCTION NewGuiSlider(orientation AS INTEGER) AS GuiSlider
+    DIM realSlider AS Slider
+    realSlider = NewSlider(orientation)
+    DIM result AS GuiSlider
+    result.handle = realSlider.handle
+    NewGuiSlider = result
+END FUNCTION
+
+SUB GuiSliderSetRange(s AS GuiSlider, min AS INTEGER, max AS INTEGER)
+    DIM realSlider AS Slider
+    realSlider.handle = s.handle
+    CALL SliderSetRange(realSlider, min, max)
+END SUB
+
+FUNCTION GuiSliderGetValue(s AS GuiSlider) AS INTEGER
+    DIM realSlider AS Slider
+    realSlider.handle = s.handle
+    GuiSliderGetValue = SliderValue(realSlider)
+END FUNCTION
+
+SUB GuiSliderSetValue(s AS GuiSlider, value AS INTEGER)
+    DIM realSlider AS Slider
+    realSlider.handle = s.handle
+    CALL SliderSetValue(realSlider, value)
+END SUB
+
+''' Discards the real `value AS INTEGER` value SliderConnectValueChanged's
+''' own native shim passes - see GuiCheckBoxConnectToggled's own doc
+''' comment above (safe per this ecosystem's established ABI rule).
+SUB GuiSliderConnectValueChanged(s AS GuiSlider, handler AS ANY PTR, userData AS ANY PTR)
+    DIM realSlider AS Slider
+    realSlider.handle = s.handle
+    CALL SliderConnectValueChanged(realSlider, handler, userData)
+END SUB
