@@ -476,6 +476,74 @@ SUB GuiGridAttach(gr AS GuiGrid, child AS ANY PTR, column AS INTEGER, row AS INT
     CALL GridLayoutAddWidget(realLayout, childWidget, row, column, rowSpan, columnSpan)
 END SUB
 
+''' Maps the contract's toolkit-neutral GUI_ALIGN_* onto real Qt's own
+''' horizontal Qt::AlignmentFlag constants (label.bas). GUI_ALIGN_FILL
+''' maps to 0 (no flag) - real Qt fills an axis by default when no
+''' alignment flag is given for it.
+FUNCTION EbGuiQt6MapHAlign(guiAlign AS INTEGER) AS INTEGER
+    IF guiAlign = GUI_ALIGN_START THEN
+        EbGuiQt6MapHAlign = QtAlignLeft
+    ELSEIF guiAlign = GUI_ALIGN_CENTER THEN
+        EbGuiQt6MapHAlign = QtAlignHCenter
+    ELSEIF guiAlign = GUI_ALIGN_END THEN
+        EbGuiQt6MapHAlign = QtAlignRight
+    ELSE
+        EbGuiQt6MapHAlign = 0
+    END IF
+END FUNCTION
+
+''' Same as EbGuiQt6MapHAlign, for the vertical axis.
+FUNCTION EbGuiQt6MapVAlign(guiAlign AS INTEGER) AS INTEGER
+    IF guiAlign = GUI_ALIGN_START THEN
+        EbGuiQt6MapVAlign = QtAlignTop
+    ELSEIF guiAlign = GUI_ALIGN_CENTER THEN
+        EbGuiQt6MapVAlign = QtAlignVCenter
+    ELSEIF guiAlign = GUI_ALIGN_END THEN
+        EbGuiQt6MapVAlign = QtAlignBottom
+    ELSE
+        EbGuiQt6MapVAlign = 0
+    END IF
+END FUNCTION
+
+''' Like GuiBoxAddChild, but also sets `child`'s relative growth weight
+''' along the box's own main axis (real QBoxLayout stretch factor - a
+''' genuine proportional ratio, unlike eb-gui-gtk4's boolean-only
+''' expand) and its alignment on the cross axis.
+SUB GuiBoxAddChildEx(bx AS GuiBox, child AS ANY PTR, expand AS SINGLE, halign AS INTEGER, valign AS INTEGER)
+    DIM realLayout AS BoxLayout
+    realLayout.handle = EbGuiQt6LayoutOf(bx.handle)
+    DIM childWidget AS QtWidget
+    childWidget.handle = child
+    DIM alignment AS INTEGER
+    alignment = EbGuiQt6MapHAlign(halign) OR EbGuiQt6MapVAlign(valign)
+    CALL BoxLayoutAddWidgetEx(realLayout, childWidget, CInt(expand), alignment)
+END SUB
+
+''' Like GuiGridAttach, but also sets `child`'s alignment within its cell.
+SUB GuiGridAttachEx(gr AS GuiGrid, child AS ANY PTR, column AS INTEGER, row AS INTEGER, columnSpan AS INTEGER, rowSpan AS INTEGER, halign AS INTEGER, valign AS INTEGER)
+    DIM realLayout AS GridLayout
+    realLayout.handle = EbGuiQt6LayoutOf(gr.handle)
+    DIM childWidget AS QtWidget
+    childWidget.handle = child
+    DIM alignment AS INTEGER
+    alignment = EbGuiQt6MapHAlign(halign) OR EbGuiQt6MapVAlign(valign)
+    CALL GridLayoutAddWidgetEx(realLayout, childWidget, row, column, rowSpan, columnSpan, alignment)
+END SUB
+
+''' Real QGridLayout::setRowStretch/setColumnStretch - independent of
+''' which widget(s) occupy that row/column.
+SUB GuiGridSetColumnWeight(gr AS GuiGrid, column AS INTEGER, weight AS SINGLE)
+    DIM realLayout AS GridLayout
+    realLayout.handle = EbGuiQt6LayoutOf(gr.handle)
+    CALL GridLayoutSetColumnStretch(realLayout, column, CInt(weight))
+END SUB
+
+SUB GuiGridSetRowWeight(gr AS GuiGrid, row AS INTEGER, weight AS SINGLE)
+    DIM realLayout AS GridLayout
+    realLayout.handle = EbGuiQt6LayoutOf(gr.handle)
+    CALL GridLayoutSetRowStretch(realLayout, row, CInt(weight))
+END SUB
+
 ''' Structurally independent of Menu/ToolBar/StatusBar chrome (unlike
 ''' eb-gui-gtk4/eb-gui-haiku's own shared content area) - a direct
 ''' pass-through to QMainWindow::setCentralWidget, no ordering concern

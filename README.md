@@ -173,6 +173,32 @@ CALL GuiWindowSetContent(win, box.handle)
 CALL GuiApplicationRun(app)
 ```
 
+Round 2 constraints (expand/align/weight):
+
+```basic
+DIM growBtn AS GuiButton
+growBtn = NewGuiButton("Grows")
+CALL GuiBoxAddChildEx(box, growBtn.handle, 1.0, GUI_ALIGN_FILL, GUI_ALIGN_CENTER)
+
+DIM fixedBtn AS GuiButton
+fixedBtn = NewGuiButton("Fixed")
+CALL GuiBoxAddChildEx(box, fixedBtn.handle, 0.0, GUI_ALIGN_END, GUI_ALIGN_START)
+```
+
+`GuiBoxAddChildEx`/`GuiGridAttachEx` look up the real underlying
+`BoxLayout`/`GridLayout` via the same `EbGuiQt6LayoutOf` association
+table `NewGuiBox`/`NewGuiGrid` already use (see above), then call
+`eb-qt6` v0.27.0's new `BoxLayoutAddWidgetEx`/`GridLayoutAddWidgetEx` -
+real `QBoxLayout`/`QGridLayout` overloads, a genuine proportional
+stretch factor (`expand`, cast to an `INTEGER` via `CInt`), not just a
+boolean like `eb-gui-gtk4`'s own. `GUI_ALIGN_*` maps to real Qt's own
+horizontal/vertical `Qt::AlignmentFlag` constants (`label.bas`'s
+`QtAlign*`, combined via `OR`) - `GUI_ALIGN_FILL` maps to `0` (no flag),
+real Qt's own default when neither is given. `GuiGridSetColumnWeight`/
+`SetRowWeight` are real, direct `setColumnStretch`/`setRowStretch`
+pass-throughs - unlike `eb-gui-gtk4`, where they're a documented no-op
+(`GtkGrid` has no such concept in real GTK4 at all).
+
 ## Verifying
 
 Built and run via `ebc` directly (see "Building" above for why):
@@ -206,7 +232,10 @@ ebc examples/hello_window/src/main.bas -o hello_window \
   calls; `GuiEntrySetText`/`GetText` round-trip correctly through a
   `GuiGrid` nested inside a `GuiBox` (each via its own holder-widget
   mechanism); `GuiWindowSetContent` onto the `MainWindow`'s own central
-  widget slot doesn't crash; and - genuinely exercised this time,
+  widget slot doesn't crash; `GuiBoxAddChildEx`/`GuiGridAttachEx`/
+  `GuiGridSetColumnWeight`/`SetRowWeight` (Round 2 constraints) run
+  without crashing, resolving through `EbGuiQt6LayoutOf` correctly
+  including a nested `GuiGrid`; and - genuinely exercised this time,
   closing a gap this file used to flag - `GuiTimer` driving a real,
   running-loop `GuiApplicationQuit` (a single-shot timer's own callback
   calls it): the program exiting promptly rather than hanging proves
