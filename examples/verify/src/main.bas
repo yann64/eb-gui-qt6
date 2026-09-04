@@ -17,6 +17,11 @@ FUNCTION OnVetoClose(userData AS ANY PTR) AS INTEGER
 END FUNCTION
 
 DIM app AS GuiApplication
+
+SUB OnTimeout(userData AS ANY PTR)
+    PRINT "timer fired - quitting"
+    CALL GuiApplicationQuit(app)
+END SUB
 app = NewGuiApplication("eb-gui-qt6-verify")
 
 ' 1. Enable/disable round trip.
@@ -40,19 +45,46 @@ CALL GuiWindowMove(childWin, 15, 15)
 PRINT "move did not crash"
 
 ' 3. Close callback wiring - no crash is the bar (see this file's own
-' top comment).
+' top comment). Deliberately NOT shown: a VISIBLE window with a
+' permanently-vetoing close callback would also block step 5's
+' GuiApplicationQuit below - CONFIRMED (not assumed) real Qt behavior,
+' not a bug: QCoreApplication::quit() implicitly tries to close every
+' *visible* top-level window first, and a vetoed close aborts the quit
+' too. GTK4's own ApplicationQuit has no such negotiation - it always
+' stops the loop unconditionally regardless of any window's
+' close-callback state. A real, confirmed cross-backend asymmetry.
 DIM vetoWin AS GuiWindow
 vetoWin = NewGuiWindow(app, "veto", 200, 100)
 CALL GuiWindowSetCloseCallback(vetoWin, @OnVetoClose, 0)
-CALL GuiWindowShow(vetoWin)
 PRINT "close callback connected without crashing"
 
-' GuiApplicationQuit/GuiApplicationRun are each a one-line pass-through
-' to eb-qt6's own already-verified ApplicationQuit/ApplicationExec, not
-' tested here: real Qt's QCoreApplication::quit() called BEFORE exec()
-' starts has no effect at all (confirmed by direct reproduction - a
-' hang, unlike GTK4's own tolerance of the same ordering, just with a
-' noisy assertion) - triggering it for real needs the event loop
-' already running (a QTimer, or real user interaction), a shape outside
-' what a plain top-to-bottom headless script can safely exercise.
-PRINT "verify complete"
+' 4. StatusBar - real QStatusBar has no message getter either, so "did
+' not crash" is the bar here too (both adapters' own StatusBar support
+' is symmetric in this respect).
+DIM sbWin AS GuiWindow
+sbWin = NewGuiWindow(app, "statusbar", 200, 100)
+DIM sb AS GuiStatusBar
+sb = GuiWindowStatusBar(sbWin)
+CALL GuiStatusBarShowMessage(sb, "hello")
+CALL GuiStatusBarClear(sb)
+PRINT "status bar show/clear did not crash"
+
+' 5. GuiTimer, and (via its own callback) GuiApplicationQuit stopping
+' GuiApplicationRun - this finally closes the gap this file's own
+' comment used to flag: GuiTimer is now part of the contract itself, so
+' a real running-loop quit (the only shape that works on this backend -
+' quit-before-run just hangs, see eb-gui-gtk4's own README for the
+' opposite-but-also-real asymmetry) is testable without reaching past
+' the contract into eb-qt6 directly.
+DIM t AS GuiTimer
+t = NewGuiTimer(win)
+CALL GuiTimerSetInterval(t, 200)
+CALL GuiTimerSetSingleShot(t, 1)
+PRINT "timer active before start: ", GuiTimerIsActive(t)
+CALL GuiTimerConnectTimeout(t, @OnTimeout, 0)
+CALL GuiTimerStart(t)
+PRINT "timer active after start: ", GuiTimerIsActive(t)
+
+CALL GuiApplicationRun(app)
+PRINT "GuiApplicationRun returned - timer-driven quit worked"
+CALL GuiTimerDestroy(t)

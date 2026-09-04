@@ -135,3 +135,86 @@ SUB GuiWindowDestroy(win AS GuiWindow)
     realWidget.handle = win.handle
     CALL WidgetDestroy(realWidget)
 END SUB
+
+''' Direct pass-through - real QMainWindow::statusBar() already
+''' auto-creates and owns its own status bar per window, exactly
+''' matching this contract function's own shape.
+FUNCTION GuiWindowStatusBar(win AS GuiWindow) AS GuiStatusBar
+    DIM realWin AS MainWindow
+    realWin.handle = win.handle
+    DIM sb AS StatusBar
+    sb = MainWindowStatusBar(realWin)
+    DIM result AS GuiStatusBar
+    result.handle = sb.handle
+    GuiWindowStatusBar = result
+END FUNCTION
+
+SUB GuiStatusBarShowMessage(sb AS GuiStatusBar, text AS ZSTRING)
+    DIM realSb AS StatusBar
+    realSb.handle = sb.handle
+    CALL StatusBarShowMessage(realSb, text, 0)
+END SUB
+
+''' Real QStatusBar has no explicit "clear" - showing an empty message
+''' achieves the same visible effect.
+SUB GuiStatusBarClear(sb AS GuiStatusBar)
+    DIM realSb AS StatusBar
+    realSb.handle = sb.handle
+    CALL StatusBarShowMessage(realSb, "", 0)
+END SUB
+
+''' `parent` is required here (unlike eb-gui-gtk4, where it's accepted
+''' but ignored) - real QTimer must be parented or it leaks, matching
+''' this package's own NewQTimer requirement.
+FUNCTION NewGuiTimer(parent AS GuiWindow) AS GuiTimer
+    DIM realParent AS QtWidget
+    realParent.handle = parent.handle
+    DIM t AS QTimer
+    t = NewQTimer(realParent)
+    DIM result AS GuiTimer
+    result.handle = t.handle
+    NewGuiTimer = result
+END FUNCTION
+
+SUB GuiTimerSetInterval(t AS GuiTimer, milliseconds AS INTEGER)
+    DIM realT AS QTimer
+    realT.handle = t.handle
+    CALL QTimerSetInterval(realT, milliseconds)
+END SUB
+
+SUB GuiTimerSetSingleShot(t AS GuiTimer, singleShot AS INTEGER)
+    DIM realT AS QTimer
+    realT.handle = t.handle
+    CALL QTimerSetSingleShot(realT, singleShot)
+END SUB
+
+SUB GuiTimerConnectTimeout(t AS GuiTimer, handler AS ANY PTR, userData AS ANY PTR)
+    DIM realT AS QTimer
+    realT.handle = t.handle
+    CALL QTimerConnectTimeout(realT, handler, userData)
+END SUB
+
+SUB GuiTimerStart(t AS GuiTimer)
+    DIM realT AS QTimer
+    realT.handle = t.handle
+    CALL QTimerStart(realT)
+END SUB
+
+SUB GuiTimerStop(t AS GuiTimer)
+    DIM realT AS QTimer
+    realT.handle = t.handle
+    CALL QTimerStop(realT)
+END SUB
+
+FUNCTION GuiTimerIsActive(t AS GuiTimer) AS INTEGER
+    DIM realT AS QTimer
+    realT.handle = t.handle
+    GuiTimerIsActive = QTimerIsActive(realT)
+END FUNCTION
+
+''' A documented no-op on this backend - real Qt destroys a QTimer
+''' automatically when its parent window is destroyed (this package's
+''' own timer.bas has no manual destroy/free function at all). Present
+''' only for signature parity with eb-gui-gtk4, where it's meaningful.
+SUB GuiTimerDestroy(t AS GuiTimer)
+END SUB

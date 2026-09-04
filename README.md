@@ -6,12 +6,16 @@ cross-toolkit `Application`/`Window` API, managed with `ebpm`.
 
 ## Status
 
-Phase 1: `Application`/`Window` only, implementing every function in
-`eb-gui`'s own contract by calling into
-[`eb-qt6`](https://github.com/yann64/eb-qt6). Needs **no native code at
-all** - unlike `eb-gui-gtk4`, `eb-qt6`'s own `MainWindowSetCloseCallback`
-already matches `eb-gui`'s contract shape and polarity exactly, so
-`GuiWindowSetCloseCallback` is a direct pass-through.
+Phase 1 (`Application`/`Window`) plus the `StatusBar`/`Timer` half of
+Phase 2, implementing every function in `eb-gui`'s own contract by
+calling into [`eb-qt6`](https://github.com/yann64/eb-qt6). Needs **no
+native code at all** - unlike `eb-gui-gtk4`, `eb-qt6`'s own
+`MainWindowSetCloseCallback` already matches `eb-gui`'s contract shape
+and polarity exactly, so `GuiWindowSetCloseCallback` is a direct
+pass-through, and `GuiTimer` maps directly onto `eb-qt6`'s own richer
+`QTimer` object model (`GuiTimerDestroy` is a documented no-op here -
+`eb-qt6`'s own `timer.bas` has no manual destroy at all, since real Qt
+destroys a `QTimer` when its parent window is destroyed).
 
 ## Building
 
@@ -64,6 +68,20 @@ needs zero window-count bookkeeping as a result - just one explicit
 `NewGuiApplication`, for certainty regardless of any future `eb-qt6`
 default change.
 
+## A real, confirmed-not-assumed Qt quit/close interaction
+
+`ApplicationQuit`/`GuiApplicationQuit` implicitly tries to close every
+*visible* top-level window as part of Qt's own shutdown sequence -
+found the hard way while writing this package's own `examples/verify`:
+an early version showed a window with a permanently-vetoing
+`GuiWindowSetCloseCallback` and then expected a later, unrelated
+`GuiTimer`-driven `GuiApplicationQuit` to still work - it silently
+hung instead, since the vetoed implicit close aborted the quit too.
+Fixed by not showing that window (an invisible window's veto has no
+such effect). GTK4 has no equivalent negotiation - `GuiApplicationQuit`
+there always stops unconditionally. See `MainWindowSetCloseCallback`'s
+own doc comment in `eb-qt6` for the full detail.
+
 ## Using as a dependency
 
 ```toml
@@ -111,7 +129,13 @@ ebc examples/hello_window/src/main.bas -o hello_window \
   crashing (the underlying close-callback firing behavior is already
   directly verified at the `eb-qt6` layer,
   `window_lifecycle_verify.bas`, since this adapter is a direct
-  pass-through with no translation of its own to test).
+  pass-through with no translation of its own to test); `GuiStatusBar`
+  show/clear didn't crash; and - genuinely exercised this time, closing
+  a gap this file used to flag - `GuiTimer` driving a real,
+  running-loop `GuiApplicationQuit` (a single-shot timer's own callback
+  calls it): the program exiting promptly rather than hanging proves
+  the interval/single-shot/callback-dispatch and quit all work
+  correctly together.
 
 ## See also
 

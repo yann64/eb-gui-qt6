@@ -3,7 +3,7 @@
 [[package]]
 name = "gui"
 path = "/home/yann64/.ebpm/cache/git/https___github.com_yann64_eb-gui.git"
-commit = "dfaac5e8b1c0a7cc42c18d00c254c157bed13efa"
+commit = "9062354025c23d70a0acf8d7592c53cd7de0756c"
 
 [[package]]
 name = "qt6"
