@@ -571,3 +571,140 @@ SUB GuiWindowSetContent(win AS GuiWindow, content AS ANY PTR)
     contentWidget.handle = content
     CALL MainWindowSetCentralWidget(realWin, contentWidget)
 END SUB
+
+''' Real Qt6 shares one AbstractButton base for CheckBox/RadioButton -
+''' both map to eb-qt6's own CheckBox TYPE here (eb-qt6's own real
+''' CheckBox/RadioButton TYPEs both EXTEND AbstractButton, and the
+''' shared AbstractButtonSetChecked/IsChecked/ConnectToggled functions
+''' take an AbstractButton, so wrapping either concrete type's handle
+''' as AbstractButton works identically).
+FUNCTION NewGuiCheckBox(text AS ZSTRING) AS GuiCheckBox
+    DIM realCb AS CheckBox
+    realCb = NewCheckBox(text)
+    DIM result AS GuiCheckBox
+    result.handle = realCb.handle
+    NewGuiCheckBox = result
+END FUNCTION
+
+SUB GuiCheckBoxSetChecked(cb AS GuiCheckBox, checked AS INTEGER)
+    DIM realAb AS AbstractButton
+    realAb.handle = cb.handle
+    CALL AbstractButtonSetChecked(realAb, checked)
+END SUB
+
+FUNCTION GuiCheckBoxIsChecked(cb AS GuiCheckBox) AS INTEGER
+    DIM realAb AS AbstractButton
+    realAb.handle = cb.handle
+    GuiCheckBoxIsChecked = AbstractButtonIsChecked(realAb)
+END FUNCTION
+
+''' Discards the real `checked AS INTEGER` value AbstractButtonConnectToggled's
+''' own native shim passes - the contract's own handler shape has no
+''' extra param (see eb-gui's own README) - call GuiCheckBoxIsChecked
+''' yourself from inside the handler instead.
+SUB GuiCheckBoxConnectToggled(cb AS GuiCheckBox, handler AS ANY PTR, userData AS ANY PTR)
+    DIM realAb AS AbstractButton
+    realAb.handle = cb.handle
+    CALL AbstractButtonConnectToggled(realAb, handler, userData)
+END SUB
+
+FUNCTION NewGuiRadioButton(text AS ZSTRING) AS GuiRadioButton
+    DIM realRb AS RadioButton
+    realRb = NewRadioButton(text)
+    DIM result AS GuiRadioButton
+    result.handle = realRb.handle
+    NewGuiRadioButton = result
+END FUNCTION
+
+SUB GuiRadioButtonSetChecked(rb AS GuiRadioButton, checked AS INTEGER)
+    DIM realAb AS AbstractButton
+    realAb.handle = rb.handle
+    CALL AbstractButtonSetChecked(realAb, checked)
+END SUB
+
+FUNCTION GuiRadioButtonIsChecked(rb AS GuiRadioButton) AS INTEGER
+    DIM realAb AS AbstractButton
+    realAb.handle = rb.handle
+    GuiRadioButtonIsChecked = AbstractButtonIsChecked(realAb)
+END FUNCTION
+
+SUB GuiRadioButtonConnectToggled(rb AS GuiRadioButton, handler AS ANY PTR, userData AS ANY PTR)
+    DIM realAb AS AbstractButton
+    realAb.handle = rb.handle
+    CALL AbstractButtonConnectToggled(realAb, handler, userData)
+END SUB
+
+''' Real Qt6 needs an explicit QButtonGroup object for cross-container
+''' radio exclusivity - the contract's own shape matches GTK4's simpler
+''' chain-to-a-reference-button model instead (no group object), so
+''' this adapter hides a real ButtonGroup behind the scenes: the first
+''' time a given `firstInGroup` handle is seen, a new ButtonGroup is
+''' created (parented to `firstInGroup` itself for lifetime) and both
+''' buttons are added to it; subsequent calls sharing the same
+''' `firstInGroup` reuse the same group. Same "hide the real object"
+''' pattern as GuiBox/GuiGrid's own holder-widget design (Round 1).
+SUB GuiRadioButtonSetGroup(rb AS GuiRadioButton, firstInGroup AS GuiRadioButton)
+    DIM groupHandle AS ANY PTR
+    groupHandle = EbGuiQt6LayoutOf(firstInGroup.handle)
+    DIM realGroup AS ButtonGroup
+    IF groupHandle = 0 THEN
+        DIM firstAb AS AbstractButton
+        firstAb.handle = firstInGroup.handle
+        realGroup = NewButtonGroup(firstAb)
+        CALL EbGuiQt6RecordLayout(firstInGroup.handle, realGroup.handle)
+        CALL ButtonGroupAddButton(realGroup, firstAb)
+    ELSE
+        realGroup.handle = groupHandle
+    END IF
+    DIM rbAb AS AbstractButton
+    rbAb.handle = rb.handle
+    CALL ButtonGroupAddButton(realGroup, rbAb)
+END SUB
+
+FUNCTION NewGuiComboBox() AS GuiComboBox
+    DIM realCombo AS ComboBox
+    realCombo = NewComboBox()
+    DIM result AS GuiComboBox
+    result.handle = realCombo.handle
+    NewGuiComboBox = result
+END FUNCTION
+
+SUB GuiComboBoxAddItem(cb AS GuiComboBox, text AS ZSTRING)
+    DIM realCombo AS ComboBox
+    realCombo.handle = cb.handle
+    CALL ComboBoxAddItem(realCombo, text)
+END SUB
+
+FUNCTION GuiComboBoxGetSelectedIndex(cb AS GuiComboBox) AS INTEGER
+    DIM realCombo AS ComboBox
+    realCombo.handle = cb.handle
+    GuiComboBoxGetSelectedIndex = ComboBoxCurrentIndex(realCombo)
+END FUNCTION
+
+SUB GuiComboBoxSetSelectedIndex(cb AS GuiComboBox, index AS INTEGER)
+    DIM realCombo AS ComboBox
+    realCombo.handle = cb.handle
+    CALL ComboBoxSetCurrentIndex(realCombo, index)
+END SUB
+
+''' Real ComboBoxCurrentText returns a freshly allocated string - same
+''' accepted per-call leak as GuiButtonGetText's own precedent (Round 1),
+''' the contract has no matching free function.
+FUNCTION GuiComboBoxGetSelectedText(cb AS GuiComboBox) AS ZSTRING
+    DIM realCombo AS ComboBox
+    realCombo.handle = cb.handle
+    DIM raw AS ANY PTR
+    raw = ComboBoxCurrentText(realCombo)
+    DIM z AS ZSTRING
+    z = raw
+    GuiComboBoxGetSelectedText = z
+END FUNCTION
+
+''' Discards the real `index AS INTEGER` value
+''' ComboBoxConnectCurrentIndexChanged's own shim passes - see
+''' GuiCheckBoxConnectToggled's own doc comment above.
+SUB GuiComboBoxConnectChanged(cb AS GuiComboBox, handler AS ANY PTR, userData AS ANY PTR)
+    DIM realCombo AS ComboBox
+    realCombo.handle = cb.handle
+    CALL ComboBoxConnectCurrentIndexChanged(realCombo, handler, userData)
+END SUB

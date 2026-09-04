@@ -215,6 +215,60 @@ layout may allocate, not a growth mechanism by themselves - pair with
 `GuiBoxAddChildEx`'s own `expand` parameter (Round 2) if you want a
 constrained item to also visibly grow into leftover space.
 
+## Widgets (Round 4) - CheckBox, RadioButton, ComboBox
+
+Needed **zero** prerequisite native work - `eb-qt6` already had rich
+`CheckBox`/`RadioButton`/`ComboBox`/`ButtonGroup` bindings; this round
+anchored the whole cross-toolkit contract's shape on this package's own
+already-built model, the reverse of the layout-constraints rounds
+(where Haiku anchored the shape instead).
+
+```basic
+DIM cb AS GuiCheckBox
+cb = NewGuiCheckBox("Enable feature")
+CALL GuiCheckBoxSetChecked(cb, 1)
+
+DIM r1 AS GuiRadioButton
+r1 = NewGuiRadioButton("Option A")
+DIM r2 AS GuiRadioButton
+r2 = NewGuiRadioButton("Option B")
+CALL GuiRadioButtonSetGroup(r2, r1)   ' r1/r2 now mutually exclusive
+
+DIM combo AS GuiComboBox
+combo = NewGuiComboBox()
+CALL GuiComboBoxAddItem(combo, "First")
+CALL GuiComboBoxAddItem(combo, "Second")
+CALL GuiComboBoxSetSelectedIndex(combo, 0)
+PRINT GuiComboBoxGetSelectedText(combo)
+```
+
+`GuiCheckBox`/`GuiRadioButton` both wrap `eb-qt6`'s own `CheckBox`/
+`RadioButton` (both `EXTENDS AbstractButton`) - the shared
+`AbstractButtonSetChecked`/`IsChecked`/`ConnectToggled` functions work
+on either concrete type's handle identically. `ConnectToggled`'s real
+native shim actually passes a second `checked AS INTEGER` argument the
+contract's own 1-param handler shape doesn't declare - safe per this
+ecosystem's established ABI rule (a native call site passing MORE
+arguments than an eBasic handler declares is safe, the extras just sit
+unused - the same reasoning `GuiEntryConnectChanged`'s own pass-through
+to `LineEditConnectTextChanged` already relies on).
+
+**The real 3-way grouping asymmetry, hidden in this adapter**: real Qt6
+needs an explicit `ButtonGroup` object for cross-container radio
+exclusivity, but the contract's own `GuiRadioButtonSetGroup(rb,
+firstInGroup)` matches GTK4's simpler "chain to a reference button"
+shape instead (no object at all). This adapter reuses the existing
+`EbGuiQt6LayoutOf`/`RecordLayout` association table (Round 1) to lazily
+create and track a real `ButtonGroup` the first time a given
+`firstInGroup` handle is grouped, parented to `firstInGroup` itself for
+lifetime - same "hide the real object behind the scenes" pattern as
+`GuiBox`/`GuiGrid`'s own holder-widget design.
+
+`GuiComboBoxGetSelectedText` deliberately leaks a small per-call
+buffer, same accepted precedent as this package's own `GuiButtonGetText`
+(Round 1) - real `ComboBoxCurrentText` returns a freshly allocated
+string and the contract has no matching free function.
+
 ## Verifying
 
 Built and run via `ebc` directly (see "Building" above for why):
@@ -252,7 +306,11 @@ ebc examples/hello_window/src/main.bas -o hello_window \
   `GuiGridSetColumnWeight`/`SetRowWeight` (Round 2 constraints) run
   without crashing, resolving through `EbGuiQt6LayoutOf` correctly
   including a nested `GuiGrid`; `GuiWidgetSetMinSize`/`SetMaxSize`
-  (Round 3) run without crashing; and - genuinely exercised this time,
+  (Round 3) run without crashing; `GuiCheckBoxConnectToggled`/
+  `GuiRadioButtonSetGroup` (real cross-container exclusivity via the
+  lazily-created `ButtonGroup`)/`GuiComboBoxConnectChanged` (Round 4)
+  all fire/round-trip correctly on a genuine programmatic state change;
+  and - genuinely exercised this time,
   closing a gap this file used to flag - `GuiTimer` driving a real,
   running-loop `GuiApplicationQuit` (a single-shot timer's own callback
   calls it): the program exiting promptly rather than hanging proves

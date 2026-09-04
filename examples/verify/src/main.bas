@@ -175,6 +175,52 @@ CALL GuiWidgetSetMinSize(fixedBtn.handle, 200, 40)
 CALL GuiWidgetSetMaxSize(fixedBtn.handle, 300, 60)
 PRINT "Round 3 min/max size (GuiWidgetSetMinSize/SetMaxSize) ran without crashing"
 
+' 8. Round 4: CheckBox/RadioButton/ComboBox.
+DIM cb AS GuiCheckBox
+cb = NewGuiCheckBox("Enable feature")
+PRINT "checkbox initial: ", GuiCheckBoxIsChecked(cb)
+CALL GuiCheckBoxSetChecked(cb, 1)
+PRINT "checkbox after set: ", GuiCheckBoxIsChecked(cb)
+
+DIM checkboxToggleCount AS INTEGER
+checkboxToggleCount = 0
+SUB OnCheckBoxToggled(userData AS ANY PTR)
+    checkboxToggleCount = checkboxToggleCount + 1
+END SUB
+CALL GuiCheckBoxConnectToggled(cb, @OnCheckBoxToggled, 0)
+CALL GuiCheckBoxSetChecked(cb, 0)
+PRINT "checkbox toggle count after programmatic uncheck: ", checkboxToggleCount
+
+DIM r1 AS GuiRadioButton
+r1 = NewGuiRadioButton("Option A")
+DIM r2 AS GuiRadioButton
+r2 = NewGuiRadioButton("Option B")
+CALL GuiRadioButtonSetGroup(r2, r1)
+CALL GuiRadioButtonSetChecked(r1, 1)
+PRINT "r1: ", GuiRadioButtonIsChecked(r1)
+PRINT "r2 (grouped, expect 0): ", GuiRadioButtonIsChecked(r2)
+CALL GuiRadioButtonSetChecked(r2, 1)
+PRINT "r1 (grouped, expect 0): ", GuiRadioButtonIsChecked(r1)
+PRINT "r2: ", GuiRadioButtonIsChecked(r2)
+
+DIM combo AS GuiComboBox
+combo = NewGuiComboBox()
+CALL GuiComboBoxAddItem(combo, "First")
+CALL GuiComboBoxAddItem(combo, "Second")
+CALL GuiComboBoxSetSelectedIndex(combo, 1)
+PRINT "combo selected index: ", GuiComboBoxGetSelectedIndex(combo)
+PRINT "combo selected text: ", GuiComboBoxGetSelectedText(combo)
+
+DIM comboChangedCount AS INTEGER
+comboChangedCount = 0
+SUB OnComboChanged(userData AS ANY PTR)
+    comboChangedCount = comboChangedCount + 1
+END SUB
+CALL GuiComboBoxConnectChanged(combo, @OnComboChanged, 0)
+CALL GuiComboBoxSetSelectedIndex(combo, 0)
+PRINT "combo changed count: ", comboChangedCount
+PRINT "Round 4 widgets (CheckBox/RadioButton/ComboBox) ran without crashing"
+
 ' 5. GuiTimer, and (via its own callback) GuiApplicationQuit stopping
 ' GuiApplicationRun - this finally closes the gap this file's own
 ' comment used to flag: GuiTimer is now part of the contract itself, so
