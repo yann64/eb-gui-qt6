@@ -1,0 +1,10 @@
+[package]
+name = "gui-qt6"
+version = "0.1.0"
+
+[lib]
+path = "src/lib.bas"
+
+[dependencies]
+gui = { git = "https://github.com/yann64/eb-gui.git" }
+qt6 = { git = "https://github.com/yann64/eb-qt6.git" }
