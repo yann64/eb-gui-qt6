@@ -544,6 +544,22 @@ SUB GuiGridSetRowWeight(gr AS GuiGrid, row AS INTEGER, weight AS SINGLE)
     CALL GridLayoutSetRowStretch(realLayout, row, CInt(weight))
 END SUB
 
+''' Direct pass-through to QWidget::setMinimumSize/setMaximumSize -
+''' both already real and bound, no prerequisite native work needed
+''' this round (unlike eb-gui-gtk4's own GuiWidgetSetMaxSize, a
+''' documented no-op - real GTK4 has no such API at all).
+SUB GuiWidgetSetMinSize(handle AS ANY PTR, width AS INTEGER, height AS INTEGER)
+    DIM w AS QtWidget
+    w.handle = handle
+    CALL WidgetSetMinimumSize(w, width, height)
+END SUB
+
+SUB GuiWidgetSetMaxSize(handle AS ANY PTR, width AS INTEGER, height AS INTEGER)
+    DIM w AS QtWidget
+    w.handle = handle
+    CALL WidgetSetMaximumSize(w, width, height)
+END SUB
+
 ''' Structurally independent of Menu/ToolBar/StatusBar chrome (unlike
 ''' eb-gui-gtk4/eb-gui-haiku's own shared content area) - a direct
 ''' pass-through to QMainWindow::setCentralWidget, no ordering concern

@@ -199,6 +199,22 @@ real Qt's own default when neither is given. `GuiGridSetColumnWeight`/
 pass-throughs - unlike `eb-gui-gtk4`, where they're a documented no-op
 (`GtkGrid` has no such concept in real GTK4 at all).
 
+Round 3 explicit min/max size - needed **zero** prerequisite native
+work (`WidgetSetMinimumSize`/`MaximumSize` already existed):
+
+```basic
+CALL GuiWidgetSetMinSize(entry.handle, 200, 40)
+CALL GuiWidgetSetMaxSize(entry.handle, 400, 40)
+```
+
+`GuiWidgetSetMinSize`/`SetMaxSize` are direct pass-throughs to
+`WidgetSetMinimumSize`/`WidgetSetMaximumSize` - both real here, unlike
+`eb-gui-gtk4`'s own `GuiWidgetSetMaxSize` (a documented no-op, GTK4 has
+no such API at all). Note min/max size are a floor/ceiling on what the
+layout may allocate, not a growth mechanism by themselves - pair with
+`GuiBoxAddChildEx`'s own `expand` parameter (Round 2) if you want a
+constrained item to also visibly grow into leftover space.
+
 ## Verifying
 
 Built and run via `ebc` directly (see "Building" above for why):
@@ -235,7 +251,8 @@ ebc examples/hello_window/src/main.bas -o hello_window \
   widget slot doesn't crash; `GuiBoxAddChildEx`/`GuiGridAttachEx`/
   `GuiGridSetColumnWeight`/`SetRowWeight` (Round 2 constraints) run
   without crashing, resolving through `EbGuiQt6LayoutOf` correctly
-  including a nested `GuiGrid`; and - genuinely exercised this time,
+  including a nested `GuiGrid`; `GuiWidgetSetMinSize`/`SetMaxSize`
+  (Round 3) run without crashing; and - genuinely exercised this time,
   closing a gap this file used to flag - `GuiTimer` driving a real,
   running-loop `GuiApplicationQuit` (a single-shot timer's own callback
   calls it): the program exiting promptly rather than hanging proves
