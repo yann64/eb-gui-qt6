@@ -32,6 +32,24 @@ per call" shape rather than GTK4's richer, action-sharing model (see
 (the last four added in `eb-qt6` v0.26.0 specifically for this) already
 match the contract shape verbatim.
 
+**Widget/Layout Round 1** (`GuiButton`/`GuiLabel`/`GuiEntry` +
+`GuiBox`/`GuiGrid`) needed one real design decision: a `QBoxLayout`/
+`QGridLayout` is NOT itself a `QWidget`, unlike GTK4's own `Box`/`Grid`
+- so `GuiBox`/`GuiGrid.handle` here is really a small holder `QWidget`
+(created internally, with the real layout applied to it via
+`WidgetSetLayout`), not the layout object directly. The real layout is
+tracked separately (`EbGuiQt6RecordLayout`/`LayoutOf`, a small
+association table) so `GuiBoxAddChild`/`GuiGridAttach` know which one
+to call `AddWidget` on - from the contract's own perspective a
+`GuiBox`/`GuiGrid` still always "is a thing you can hand to
+`GuiBoxAddChild`/`GuiGridAttach`/`GuiWindowSetContent` uniformly,"
+matching `eb-gui-gtk4`'s own direct (holder-free) shape from the
+outside. `GuiButtonGetText`/`GuiEntryGetText` intentionally leak one
+small heap buffer per call - real Qt's own text getters return a
+freshly allocated buffer every time (unlike GTK4/Haiku's borrowed,
+long-lived storage), and `eb-gui`'s own contract has no matching free
+function for this return value.
+
 ## Building
 
 ```sh
@@ -128,6 +146,30 @@ SUB OnOpen(userData AS ANY PTR)
 END SUB
 CALL GuiActionConnectTriggered(openAction, @OnOpen, 0)
 
+DIM box AS GuiBox
+box = NewGuiBox(1, 8)   ' 1 = vertical
+
+DIM lbl AS GuiLabel
+lbl = NewGuiLabel("Type something, then click Go")
+CALL GuiBoxAddChild(box, lbl.handle)
+
+DIM entry AS GuiEntry
+entry = NewGuiEntry("")
+CALL GuiBoxAddChild(box, entry.handle)
+
+SUB OnGo(userData AS ANY PTR)
+    DIM e AS GuiEntry
+    e.handle = userData
+    PRINT GuiEntryGetText(e)
+END SUB
+
+DIM btn AS GuiButton
+btn = NewGuiButton("Go")
+CALL GuiButtonConnectClicked(btn, @OnGo, entry.handle)
+CALL GuiBoxAddChild(box, btn.handle)
+
+CALL GuiWindowSetContent(win, box.handle)
+
 CALL GuiApplicationRun(app)
 ```
 
@@ -161,12 +203,19 @@ ebc examples/hello_window/src/main.bas -o hello_window \
   connected `GuiActionConnectTriggered` handler for both a menu action
   and a tool bar action; `GuiActionSetEnabled`/`IsEnabled` round-trip
   correctly; `GuiWindowToolBar` returns the identical handle on repeated
-  calls; and - genuinely exercised this time, closing a gap this file
-  used to flag - `GuiTimer` driving a real, running-loop
-  `GuiApplicationQuit` (a single-shot timer's own callback calls it):
-  the program exiting promptly rather than hanging proves the
-  interval/single-shot/callback-dispatch and quit all work correctly
+  calls; `GuiEntrySetText`/`GetText` round-trip correctly through a
+  `GuiGrid` nested inside a `GuiBox` (each via its own holder-widget
+  mechanism); `GuiWindowSetContent` onto the `MainWindow`'s own central
+  widget slot doesn't crash; and - genuinely exercised this time,
+  closing a gap this file used to flag - `GuiTimer` driving a real,
+  running-loop `GuiApplicationQuit` (a single-shot timer's own callback
+  calls it): the program exiting promptly rather than hanging proves
+  the interval/single-shot/callback-dispatch and quit all work correctly
   together.
+- `examples/widgets_form` - a `GuiBox` containing a `GuiLabel` +
+  `GuiEntry` + `GuiButton`, clicking the button reads the entry and
+  updates the label (confirmed launches and runs without crashing on
+  this host).
 
 ## See also
 

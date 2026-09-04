@@ -303,3 +303,187 @@ FUNCTION GuiToolBarAddAction(bar AS GuiToolBar, text AS ZSTRING) AS GuiAction
     result.handle = act.handle
     GuiToolBarAddAction = result
 END FUNCTION
+
+''' A real QBoxLayout/QGridLayout is NOT a QWidget itself, unlike GTK4's
+''' own Box/Grid - so GuiBox/GuiGrid.handle is really a small holder
+''' QWidget (created here, with the real layout applied to it via
+''' WidgetSetLayout) rather than the layout object directly. The real
+''' layout is tracked separately (this table) so GuiBoxAddChild/
+''' GuiGridAttach know which one to call AddWidget on - from this
+''' contract's own perspective a GuiBox/GuiGrid is still always "a
+''' thing you can hand to GuiBoxAddChild/GuiGridAttach/
+''' GuiWindowSetContent uniformly," matching eb-gui-gtk4's own direct
+''' (holder-free) shape from the outside.
+DIM ebGuiQt6LayoutOfKeys(128) AS ANY PTR
+DIM ebGuiQt6LayoutOfVals(128) AS ANY PTR
+DIM ebGuiQt6LayoutOfCount AS INTEGER
+
+SUB EbGuiQt6RecordLayout(holderHandle AS ANY PTR, layoutHandle AS ANY PTR)
+    ebGuiQt6LayoutOfKeys(ebGuiQt6LayoutOfCount) = holderHandle
+    ebGuiQt6LayoutOfVals(ebGuiQt6LayoutOfCount) = layoutHandle
+    ebGuiQt6LayoutOfCount = ebGuiQt6LayoutOfCount + 1
+END SUB
+
+FUNCTION EbGuiQt6LayoutOf(holderHandle AS ANY PTR) AS ANY PTR
+    DIM i AS INTEGER
+    FOR i = 0 TO ebGuiQt6LayoutOfCount - 1
+        IF ebGuiQt6LayoutOfKeys(i) = holderHandle THEN
+            EbGuiQt6LayoutOf = ebGuiQt6LayoutOfVals(i)
+            EXIT FUNCTION
+        END IF
+    NEXT i
+    EbGuiQt6LayoutOf = 0
+END FUNCTION
+
+FUNCTION NewGuiButton(text AS ZSTRING) AS GuiButton
+    DIM realBtn AS Button
+    realBtn = NewButton(text)
+    DIM result AS GuiButton
+    result.handle = realBtn.handle
+    NewGuiButton = result
+END FUNCTION
+
+SUB GuiButtonSetText(b AS GuiButton, text AS ZSTRING)
+    DIM realBtn AS Button
+    realBtn.handle = b.handle
+    CALL ButtonSetText(realBtn, text)
+END SUB
+
+''' Real Qt returns a freshly heap-allocated buffer on every call
+''' (unlike GTK4/Haiku's borrowed, long-lived storage) - intentionally
+''' not freed here, since eb-gui's own contract has no matching free
+''' function for this return value. A real, documented, minor per-call
+''' leak, not an oversight.
+FUNCTION GuiButtonGetText(b AS GuiButton) AS ZSTRING
+    DIM realBtn AS Button
+    realBtn.handle = b.handle
+    DIM raw AS ANY PTR
+    raw = ButtonGetText(realBtn)
+    DIM z AS ZSTRING
+    z = raw
+    GuiButtonGetText = z
+END FUNCTION
+
+SUB GuiButtonConnectClicked(b AS GuiButton, handler AS ANY PTR, userData AS ANY PTR)
+    DIM realBtn AS Button
+    realBtn.handle = b.handle
+    CALL ButtonConnectClicked(realBtn, handler, userData)
+END SUB
+
+FUNCTION NewGuiLabel(text AS ZSTRING) AS GuiLabel
+    DIM realLbl AS Label
+    realLbl = NewLabel(text)
+    DIM result AS GuiLabel
+    result.handle = realLbl.handle
+    NewGuiLabel = result
+END FUNCTION
+
+SUB GuiLabelSetText(l AS GuiLabel, text AS ZSTRING)
+    DIM realLbl AS Label
+    realLbl.handle = l.handle
+    CALL LabelSetText(realLbl, text)
+END SUB
+
+FUNCTION NewGuiEntry(text AS ZSTRING) AS GuiEntry
+    DIM realEntry AS LineEdit
+    realEntry = NewLineEdit(text)
+    DIM result AS GuiEntry
+    result.handle = realEntry.handle
+    NewGuiEntry = result
+END FUNCTION
+
+SUB GuiEntrySetText(e AS GuiEntry, text AS ZSTRING)
+    DIM realEntry AS LineEdit
+    realEntry.handle = e.handle
+    CALL LineEditSetText(realEntry, text)
+END SUB
+
+''' Same real, documented, minor per-call leak as GuiButtonGetText -
+''' Qt's own QLineEdit::text() marshaling returns a fresh buffer each
+''' call.
+FUNCTION GuiEntryGetText(e AS GuiEntry) AS ZSTRING
+    DIM realEntry AS LineEdit
+    realEntry.handle = e.handle
+    DIM raw AS ANY PTR
+    raw = LineEditGetText(realEntry)
+    DIM z AS ZSTRING
+    z = raw
+    GuiEntryGetText = z
+END FUNCTION
+
+''' Real Qt's own `textChanged` signal actually passes a borrowed
+''' `text AS ZSTRING` as a second argument to the handler - eb-gui's
+''' own contract handler shape omits it (`SUB(userData AS ANY PTR)`
+''' only, call `GuiEntryGetText` yourself instead), which is still
+''' ABI-safe to connect directly: a native call always passes both
+''' arguments in fixed registers regardless of how many the actual
+''' handler declares, so a handler simply not accepting the second one
+''' never reads it.
+SUB GuiEntryConnectChanged(e AS GuiEntry, handler AS ANY PTR, userData AS ANY PTR)
+    DIM realEntry AS LineEdit
+    realEntry.handle = e.handle
+    CALL LineEditConnectTextChanged(realEntry, handler, userData)
+END SUB
+
+''' orientation: 0=horizontal, 1=vertical (matches eb-gui's own
+''' contract convention).
+FUNCTION NewGuiBox(orientation AS INTEGER, spacing AS INTEGER) AS GuiBox
+    DIM realLayout AS BoxLayout
+    IF orientation = 1 THEN
+        realLayout = NewVBoxLayout()
+    ELSE
+        realLayout = NewHBoxLayout()
+    END IF
+    CALL BoxLayoutSetSpacing(realLayout, spacing)
+    DIM holder AS QtWidget
+    holder = NewWidget()
+    CALL WidgetSetLayout(holder, realLayout)
+    CALL EbGuiQt6RecordLayout(holder.handle, realLayout.handle)
+    DIM result AS GuiBox
+    result.handle = holder.handle
+    NewGuiBox = result
+END FUNCTION
+
+SUB GuiBoxAddChild(bx AS GuiBox, child AS ANY PTR)
+    DIM realLayout AS BoxLayout
+    realLayout.handle = EbGuiQt6LayoutOf(bx.handle)
+    DIM childWidget AS QtWidget
+    childWidget.handle = child
+    CALL BoxLayoutAddWidget(realLayout, childWidget)
+END SUB
+
+FUNCTION NewGuiGrid() AS GuiGrid
+    DIM realLayout AS GridLayout
+    realLayout = NewGridLayout()
+    DIM holder AS QtWidget
+    holder = NewWidget()
+    CALL WidgetSetLayout(holder, realLayout)
+    CALL EbGuiQt6RecordLayout(holder.handle, realLayout.handle)
+    DIM result AS GuiGrid
+    result.handle = holder.handle
+    NewGuiGrid = result
+END FUNCTION
+
+''' `GridLayoutAddWidget`'s own real param order is (row, column,
+''' rowSpan, columnSpan) - reordered here to match this contract's own
+''' (column, row, columnSpan, rowSpan) convention, shared with
+''' `eb-gui-gtk4`'s identical `GuiGridAttach` shape.
+SUB GuiGridAttach(gr AS GuiGrid, child AS ANY PTR, column AS INTEGER, row AS INTEGER, columnSpan AS INTEGER, rowSpan AS INTEGER)
+    DIM realLayout AS GridLayout
+    realLayout.handle = EbGuiQt6LayoutOf(gr.handle)
+    DIM childWidget AS QtWidget
+    childWidget.handle = child
+    CALL GridLayoutAddWidget(realLayout, childWidget, row, column, rowSpan, columnSpan)
+END SUB
+
+''' Structurally independent of Menu/ToolBar/StatusBar chrome (unlike
+''' eb-gui-gtk4/eb-gui-haiku's own shared content area) - a direct
+''' pass-through to QMainWindow::setCentralWidget, no ordering concern
+''' at all.
+SUB GuiWindowSetContent(win AS GuiWindow, content AS ANY PTR)
+    DIM realWin AS MainWindow
+    realWin.handle = win.handle
+    DIM contentWidget AS QtWidget
+    contentWidget.handle = content
+    CALL MainWindowSetCentralWidget(realWin, contentWidget)
+END SUB

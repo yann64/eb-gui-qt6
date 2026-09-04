@@ -22,6 +22,9 @@ SUB OnActionTriggered(userData AS ANY PTR)
     triggerCount = triggerCount + 1
 END SUB
 
+SUB OnWidgetButtonClicked(userData AS ANY PTR)
+END SUB
+
 DIM app AS GuiApplication
 
 SUB OnTimeout(userData AS ANY PTR)
@@ -106,6 +109,41 @@ toolAction = GuiToolBarAddAction(tbar1, "Go")
 CALL GuiActionConnectTriggered(toolAction, @OnActionTriggered, 0)
 CALL GuiActionTrigger(toolAction)
 PRINT "after toolbar action trigger: ", triggerCount
+
+' 6. Widget/Layout Round 1 - GuiBox/GuiGrid nesting (a GuiGrid inside a
+' GuiBox, via each's own holder-widget mechanism - see eb-gui-qt6's own
+' src/lib.bas top comment on EbGuiQt6RecordLayout), GuiEntry text
+' round-trip, and GuiWindowSetContent onto the MainWindow's own central
+' widget slot (structurally independent of Menu/ToolBar/StatusBar here,
+' unlike eb-gui-gtk4/eb-gui-haiku's shared content area).
+' GuiButtonConnectClicked itself is only confirmed "connects without
+' crashing" - real Qt's own QAbstractButton has no bound programmatic
+' "click()" primitive in this package either, matching eb-gui-gtk4's
+' identical gap for the same underlying reason (real interactive
+' clicking isn't headlessly driveable).
+DIM widgetsBox AS GuiBox
+widgetsBox = NewGuiBox(1, 4)
+
+DIM formGrid AS GuiGrid
+formGrid = NewGuiGrid()
+DIM nameLbl AS GuiLabel
+nameLbl = NewGuiLabel("Name:")
+CALL GuiGridAttach(formGrid, nameLbl.handle, 0, 0, 1, 1)
+DIM nameEntry AS GuiEntry
+nameEntry = NewGuiEntry("")
+CALL GuiGridAttach(formGrid, nameEntry.handle, 1, 0, 1, 1)
+CALL GuiBoxAddChild(widgetsBox, formGrid.handle)
+
+CALL GuiEntrySetText(nameEntry, "hello")
+PRINT "entry text round-trip: ", GuiEntryGetText(nameEntry)
+
+DIM goBtn AS GuiButton
+goBtn = NewGuiButton("Go")
+CALL GuiButtonConnectClicked(goBtn, @OnWidgetButtonClicked, 0)
+CALL GuiBoxAddChild(widgetsBox, goBtn.handle)
+
+CALL GuiWindowSetContent(sbWin, widgetsBox.handle)
+PRINT "GuiWindowSetContent (central widget) did not crash"
 
 ' 5. GuiTimer, and (via its own callback) GuiApplicationQuit stopping
 ' GuiApplicationRun - this finally closes the gap this file's own
