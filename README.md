@@ -6,6 +6,12 @@ cross-toolkit `Application`/`Window` API, managed with `ebpm`.
 
 ## Status
 
+**Confirmed running on Haiku, unmodified** (2026-09-04) - real
+HaikuPorts `qt6_base`, and `examples/verify` (compiled directly via
+`ebc`, same manual-linking gap as on Linux) all work with zero source
+changes; see `eb-qt6`'s own README for the platform detail (Qt6's Haiku
+port uses its own native platform plugin).
+
 Phase 1 (`Application`/`Window`) plus all of Phase 2
 (`StatusBar`/`Timer`/`Menu`/`Toolbar`/`Action`), implementing every
 function in `eb-gui`'s own contract by calling into
