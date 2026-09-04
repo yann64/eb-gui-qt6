@@ -218,3 +218,88 @@ END FUNCTION
 ''' only for signature parity with eb-gui-gtk4, where it's meaningful.
 SUB GuiTimerDestroy(t AS GuiTimer)
 END SUB
+
+''' Direct pass-through - real QMainWindow::menuBar() already
+''' auto-creates and owns its own menu bar per window, exactly matching
+''' this contract function's own shape.
+FUNCTION GuiWindowMenuBar(win AS GuiWindow) AS GuiMenuBar
+    DIM realWin AS MainWindow
+    realWin.handle = win.handle
+    DIM bar AS MenuBar
+    bar = MainWindowMenuBar(realWin)
+    DIM result AS GuiMenuBar
+    result.handle = bar.handle
+    GuiWindowMenuBar = result
+END FUNCTION
+
+FUNCTION GuiMenuBarAddMenu(bar AS GuiMenuBar, title AS ZSTRING) AS GuiMenu
+    DIM realBar AS MenuBar
+    realBar.handle = bar.handle
+    DIM m AS Menu
+    m = MenuBarAddMenu(realBar, title)
+    DIM result AS GuiMenu
+    result.handle = m.handle
+    GuiMenuBarAddMenu = result
+END FUNCTION
+
+''' Direct pass-through - real QAction is already created fresh per
+''' call by this package's own MenuAddAction, exactly matching this
+''' contract function's own "create fresh per call" shape (see eb-gui's
+''' own README on why the contract follows Qt6's shape rather than
+''' GTK4's richer, action-sharing model).
+FUNCTION GuiMenuAddAction(guiMenu AS GuiMenu, text AS ZSTRING) AS GuiAction
+    DIM realMenu AS Menu
+    realMenu.handle = guiMenu.handle
+    DIM act AS Action
+    act = MenuAddAction(realMenu, text)
+    DIM result AS GuiAction
+    result.handle = act.handle
+    GuiMenuAddAction = result
+END FUNCTION
+
+SUB GuiActionConnectTriggered(a AS GuiAction, handler AS ANY PTR, userData AS ANY PTR)
+    DIM realAction AS Action
+    realAction.handle = a.handle
+    CALL ActionConnectTriggered(realAction, handler, userData)
+END SUB
+
+SUB GuiActionSetEnabled(a AS GuiAction, enabled AS INTEGER)
+    DIM realAction AS Action
+    realAction.handle = a.handle
+    CALL ActionSetEnabled(realAction, enabled)
+END SUB
+
+FUNCTION GuiActionIsEnabled(a AS GuiAction) AS INTEGER
+    DIM realAction AS Action
+    realAction.handle = a.handle
+    GuiActionIsEnabled = ActionIsEnabled(realAction)
+END FUNCTION
+
+SUB GuiActionTrigger(a AS GuiAction)
+    DIM realAction AS Action
+    realAction.handle = a.handle
+    CALL ActionTrigger(realAction)
+END SUB
+
+''' Direct pass-through - MainWindowToolBar (eb-qt6 v0.26.0+) already
+''' gives this window a single, auto-created-once tool bar, exactly
+''' matching this contract function's own shape.
+FUNCTION GuiWindowToolBar(win AS GuiWindow) AS GuiToolBar
+    DIM realWin AS MainWindow
+    realWin.handle = win.handle
+    DIM tb AS ToolBar
+    tb = MainWindowToolBar(realWin)
+    DIM result AS GuiToolBar
+    result.handle = tb.handle
+    GuiWindowToolBar = result
+END FUNCTION
+
+FUNCTION GuiToolBarAddAction(bar AS GuiToolBar, text AS ZSTRING) AS GuiAction
+    DIM realBar AS ToolBar
+    realBar.handle = bar.handle
+    DIM act AS Action
+    act = ToolBarAddAction(realBar, text)
+    DIM result AS GuiAction
+    result.handle = act.handle
+    GuiToolBarAddAction = result
+END FUNCTION

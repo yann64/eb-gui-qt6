@@ -16,6 +16,12 @@ FUNCTION OnVetoClose(userData AS ANY PTR) AS INTEGER
     OnVetoClose = 0
 END FUNCTION
 
+DIM triggerCount AS INTEGER
+
+SUB OnActionTriggered(userData AS ANY PTR)
+    triggerCount = triggerCount + 1
+END SUB
+
 DIM app AS GuiApplication
 
 SUB OnTimeout(userData AS ANY PTR)
@@ -68,6 +74,38 @@ sb = GuiWindowStatusBar(sbWin)
 CALL GuiStatusBarShowMessage(sb, "hello")
 CALL GuiStatusBarClear(sb)
 PRINT "status bar show/clear did not crash"
+
+' 6. Menu/ToolBar/Action - a programmatic GuiActionTrigger should
+' genuinely reach a connected GuiActionConnectTriggered handler for
+' both a menu action and a tool bar action.
+DIM mbar AS GuiMenuBar
+mbar = GuiWindowMenuBar(sbWin)
+DIM fileMenu AS GuiMenu
+fileMenu = GuiMenuBarAddMenu(mbar, "File")
+DIM menuAction AS GuiAction
+menuAction = GuiMenuAddAction(fileMenu, "Test")
+CALL GuiActionConnectTriggered(menuAction, @OnActionTriggered, 0)
+PRINT "before menu action trigger: ", triggerCount
+CALL GuiActionTrigger(menuAction)
+PRINT "after menu action trigger: ", triggerCount
+
+PRINT "action enabled by default: ", GuiActionIsEnabled(menuAction)
+CALL GuiActionSetEnabled(menuAction, 0)
+PRINT "action enabled after disable: ", GuiActionIsEnabled(menuAction)
+CALL GuiActionSetEnabled(menuAction, 1)
+PRINT "action enabled after re-enable: ", GuiActionIsEnabled(menuAction)
+
+DIM tbar1 AS GuiToolBar
+tbar1 = GuiWindowToolBar(sbWin)
+DIM tbar2 AS GuiToolBar
+tbar2 = GuiWindowToolBar(sbWin)
+PRINT "GuiWindowToolBar returns the same handle both times: ", (tbar1.handle = tbar2.handle)
+
+DIM toolAction AS GuiAction
+toolAction = GuiToolBarAddAction(tbar1, "Go")
+CALL GuiActionConnectTriggered(toolAction, @OnActionTriggered, 0)
+CALL GuiActionTrigger(toolAction)
+PRINT "after toolbar action trigger: ", triggerCount
 
 ' 5. GuiTimer, and (via its own callback) GuiApplicationQuit stopping
 ' GuiApplicationRun - this finally closes the gap this file's own

@@ -6,16 +6,25 @@ cross-toolkit `Application`/`Window` API, managed with `ebpm`.
 
 ## Status
 
-Phase 1 (`Application`/`Window`) plus the `StatusBar`/`Timer` half of
-Phase 2, implementing every function in `eb-gui`'s own contract by
-calling into [`eb-qt6`](https://github.com/yann64/eb-qt6). Needs **no
-native code at all** - unlike `eb-gui-gtk4`, `eb-qt6`'s own
-`MainWindowSetCloseCallback` already matches `eb-gui`'s contract shape
-and polarity exactly, so `GuiWindowSetCloseCallback` is a direct
-pass-through, and `GuiTimer` maps directly onto `eb-qt6`'s own richer
-`QTimer` object model (`GuiTimerDestroy` is a documented no-op here -
-`eb-qt6`'s own `timer.bas` has no manual destroy at all, since real Qt
-destroys a `QTimer` when its parent window is destroyed).
+Phase 1 (`Application`/`Window`) plus all of Phase 2
+(`StatusBar`/`Timer`/`Menu`/`Toolbar`/`Action`), implementing every
+function in `eb-gui`'s own contract by calling into
+[`eb-qt6`](https://github.com/yann64/eb-qt6). Needs **no native code at
+all** - unlike `eb-gui-gtk4`, `eb-qt6`'s own `MainWindowSetCloseCallback`
+already matches `eb-gui`'s contract shape and polarity exactly, so
+`GuiWindowSetCloseCallback` is a direct pass-through, and `GuiTimer` maps
+directly onto `eb-qt6`'s own richer `QTimer` object model
+(`GuiTimerDestroy` is a documented no-op here - `eb-qt6`'s own
+`timer.bas` has no manual destroy at all, since real Qt destroys a
+`QTimer` when its parent window is destroyed). The Menu/Toolbar/Action
+functions are direct pass-throughs too, for the same reason: `eb-gui`'s
+own contract deliberately follows Qt6's simpler "create a fresh action
+per call" shape rather than GTK4's richer, action-sharing model (see
+`eb-gui`'s own README), so this adapter needed no bridging at all -
+`eb-qt6`'s own `MenuAddAction`/`ToolBarAddAction`/`ActionConnectTriggered`/
+`ActionSetEnabled`/`ActionIsEnabled`/`ActionTrigger`/`MainWindowToolBar`
+(the last four added in `eb-qt6` v0.26.0 specifically for this) already
+match the contract shape verbatim.
 
 ## Building
 
@@ -101,6 +110,18 @@ DIM win AS GuiWindow
 win = NewGuiWindow(app, "Hello", 320, 240)
 CALL GuiWindowShow(win)
 
+DIM bar AS GuiMenuBar
+bar = GuiWindowMenuBar(win)
+DIM fileMenu AS GuiMenu
+fileMenu = GuiMenuBarAddMenu(bar, "File")
+DIM openAction AS GuiAction
+openAction = GuiMenuAddAction(fileMenu, "Open...")
+
+SUB OnOpen(userData AS ANY PTR)
+    PRINT "open"
+END SUB
+CALL GuiActionConnectTriggered(openAction, @OnOpen, 0)
+
 CALL GuiApplicationRun(app)
 ```
 
@@ -130,12 +151,16 @@ ebc examples/hello_window/src/main.bas -o hello_window \
   directly verified at the `eb-qt6` layer,
   `window_lifecycle_verify.bas`, since this adapter is a direct
   pass-through with no translation of its own to test); `GuiStatusBar`
-  show/clear didn't crash; and - genuinely exercised this time, closing
-  a gap this file used to flag - `GuiTimer` driving a real,
-  running-loop `GuiApplicationQuit` (a single-shot timer's own callback
-  calls it): the program exiting promptly rather than hanging proves
-  the interval/single-shot/callback-dispatch and quit all work
-  correctly together.
+  show/clear didn't crash; `GuiActionTrigger` genuinely reaches a
+  connected `GuiActionConnectTriggered` handler for both a menu action
+  and a tool bar action; `GuiActionSetEnabled`/`IsEnabled` round-trip
+  correctly; `GuiWindowToolBar` returns the identical handle on repeated
+  calls; and - genuinely exercised this time, closing a gap this file
+  used to flag - `GuiTimer` driving a real, running-loop
+  `GuiApplicationQuit` (a single-shot timer's own callback calls it):
+  the program exiting promptly rather than hanging proves the
+  interval/single-shot/callback-dispatch and quit all work correctly
+  together.
 
 ## See also
 
