@@ -769,3 +769,137 @@ SUB GuiSliderConnectValueChanged(s AS GuiSlider, handler AS ANY PTR, userData AS
     realSlider.handle = s.handle
     CALL SliderConnectValueChanged(realSlider, handler, userData)
 END SUB
+
+''' Real QListWidget has no by-index item-text getter (only
+''' `currentText()`, for whichever row is current) - so this adapter
+''' tracks each list widget's own item texts itself, the same
+''' small-parallel-array pattern eb-gui-haiku's own GuiComboBox already
+''' uses for an analogous real gap.
+DIM ebGuiQt6ListBoxKeys(1024) AS ANY PTR
+DIM ebGuiQt6ListBoxItemTexts(1024) AS STRING
+DIM ebGuiQt6ListBoxCount AS INTEGER
+
+FUNCTION NewGuiListBox() AS GuiListBox
+    DIM realList AS ListWidget
+    realList = NewListWidget()
+    DIM result AS GuiListBox
+    result.handle = realList.handle
+    NewGuiListBox = result
+END FUNCTION
+
+SUB GuiListBoxAddItem(lb AS GuiListBox, text AS ZSTRING)
+    DIM realList AS ListWidget
+    realList.handle = lb.handle
+    CALL ListWidgetAddItem(realList, text)
+    ebGuiQt6ListBoxKeys(ebGuiQt6ListBoxCount) = lb.handle
+    ebGuiQt6ListBoxItemTexts(ebGuiQt6ListBoxCount) = text
+    ebGuiQt6ListBoxCount = ebGuiQt6ListBoxCount + 1
+END SUB
+
+FUNCTION GuiListBoxGetItemText(lb AS GuiListBox, index AS INTEGER) AS ZSTRING
+    DIM i AS INTEGER
+    DIM localIndex AS INTEGER
+    localIndex = 0
+    FOR i = 0 TO ebGuiQt6ListBoxCount - 1
+        IF ebGuiQt6ListBoxKeys(i) = lb.handle THEN
+            IF localIndex = index THEN
+                GuiListBoxGetItemText = ebGuiQt6ListBoxItemTexts(i)
+                EXIT FUNCTION
+            END IF
+            localIndex = localIndex + 1
+        END IF
+    NEXT i
+    GuiListBoxGetItemText = ""
+END FUNCTION
+
+FUNCTION GuiListBoxGetCount(lb AS GuiListBox) AS INTEGER
+    DIM realList AS ListWidget
+    realList.handle = lb.handle
+    GuiListBoxGetCount = ListWidgetCount(realList)
+END FUNCTION
+
+''' Also drops this list box's own tracked item texts (compacts the
+''' shared table) - otherwise a later AddItem after Clear would append
+''' onto stale leftover rows and GetItemText would read the wrong ones.
+SUB GuiListBoxClear(lb AS GuiListBox)
+    DIM realList AS ListWidget
+    realList.handle = lb.handle
+    CALL ListWidgetClear(realList)
+
+    DIM i AS INTEGER
+    DIM writeIndex AS INTEGER
+    writeIndex = 0
+    FOR i = 0 TO ebGuiQt6ListBoxCount - 1
+        IF ebGuiQt6ListBoxKeys(i) <> lb.handle THEN
+            ebGuiQt6ListBoxKeys(writeIndex) = ebGuiQt6ListBoxKeys(i)
+            ebGuiQt6ListBoxItemTexts(writeIndex) = ebGuiQt6ListBoxItemTexts(i)
+            writeIndex = writeIndex + 1
+        END IF
+    NEXT i
+    ebGuiQt6ListBoxCount = writeIndex
+END SUB
+
+''' Direct pass-through - real QListWidget::currentRow() already
+''' returns -1 when nothing is selected, exactly matching this
+''' contract function's own convention.
+FUNCTION GuiListBoxGetSelectedIndex(lb AS GuiListBox) AS INTEGER
+    DIM realList AS ListWidget
+    realList.handle = lb.handle
+    GuiListBoxGetSelectedIndex = ListWidgetCurrentRow(realList)
+END FUNCTION
+
+SUB GuiListBoxSetSelectedIndex(lb AS GuiListBox, index AS INTEGER)
+    DIM realList AS ListWidget
+    realList.handle = lb.handle
+    CALL ListWidgetSetCurrentRow(realList, index)
+END SUB
+
+''' Discards the real `row AS INTEGER` value
+''' ListWidgetConnectCurrentRowChanged's own shim passes - safe per this
+''' ecosystem's established ABI rule (see GuiCheckBoxConnectToggled's
+''' own doc comment above).
+SUB GuiListBoxConnectSelectionChanged(lb AS GuiListBox, handler AS ANY PTR, userData AS ANY PTR)
+    DIM realList AS ListWidget
+    realList.handle = lb.handle
+    CALL ListWidgetConnectCurrentRowChanged(realList, handler, userData)
+END SUB
+
+FUNCTION NewGuiTextView() AS GuiTextView
+    DIM realEdit AS TextEdit
+    realEdit = NewTextEdit()
+    DIM result AS GuiTextView
+    result.handle = realEdit.handle
+    NewGuiTextView = result
+END FUNCTION
+
+SUB GuiTextViewSetText(tv AS GuiTextView, text AS ZSTRING)
+    DIM realEdit AS TextEdit
+    realEdit.handle = tv.handle
+    CALL TextEditSetText(realEdit, text)
+END SUB
+
+''' Same real, documented, minor per-call leak as GuiButtonGetText -
+''' real QTextEdit::toPlainText() returns a freshly allocated buffer.
+FUNCTION GuiTextViewGetText(tv AS GuiTextView) AS ZSTRING
+    DIM realEdit AS TextEdit
+    realEdit.handle = tv.handle
+    DIM raw AS ANY PTR
+    raw = TextEditGetText(realEdit)
+    DIM z AS ZSTRING
+    z = raw
+    GuiTextViewGetText = z
+END FUNCTION
+
+''' The contract's own `editable` polarity is inverted from real Qt's
+''' own `setReadOnly` - flipped here so both eb-gui-gtk4 and
+''' eb-gui-haiku (both genuinely "editable"-named) share the same
+''' caller-facing sense.
+SUB GuiTextViewSetEditable(tv AS GuiTextView, editable AS INTEGER)
+    DIM realEdit AS TextEdit
+    realEdit.handle = tv.handle
+    IF editable = 0 THEN
+        CALL TextEditSetReadOnly(realEdit, 1)
+    ELSE
+        CALL TextEditSetReadOnly(realEdit, 0)
+    END IF
+END SUB

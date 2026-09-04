@@ -299,6 +299,54 @@ created `GuiProgressBar` reads `-1` here (real Qt's own documented
 `eb-gui-gtk4`'s own default - a genuine Qt convention, not a bug;
 `SetValue`/`SetRange` behave identically once called.
 
+## Widgets (Round 6) - ListBox, TextView
+
+```basic
+DIM lb AS GuiListBox
+lb = NewGuiListBox()
+CALL GuiListBoxAddItem(lb, "First")
+CALL GuiListBoxAddItem(lb, "Second")
+CALL GuiListBoxSetSelectedIndex(lb, 1)
+PRINT GuiListBoxGetSelectedIndex(lb)   ' 1
+PRINT GuiListBoxGetItemText(lb, 0)     ' First
+
+DIM tv AS GuiTextView
+tv = NewGuiTextView()
+CALL GuiTextViewSetText(tv, "hello")
+PRINT GuiTextViewGetText(tv)
+```
+
+`GuiListBox` wraps `eb-qt6`'s already-bound `ListWidget` directly for
+every function except `GetItemText`: real `QListWidget` has no
+by-index item-text getter (only `currentText()`, for whichever row is
+current) - a real, confirmed gap, not an oversight (`ComboBox` DOES
+have `ComboBoxItemText(index)` on this same backend; `ListWidget`
+doesn't). This adapter tracks each list box's own item texts itself in
+a small parallel-array table keyed by handle, the same technique
+`eb-gui-haiku`'s own `GuiComboBox` already uses for an analogous real
+gap (`BStringItem`/`HMenuItem` there). `GuiListBoxClear` compacts the
+shared table (drops every row belonging to the cleared list box) so a
+later `AddItem` after `Clear` can't read back stale text from before -
+verified directly in `examples/verify`. `GuiListBoxGetCount`/
+`GetSelectedIndex`/`SetSelectedIndex`/`ConnectSelectionChanged` are all
+direct pass-throughs (`ListWidgetCount`/`CurrentRow`/`SetCurrentRow`/
+`ConnectCurrentRowChanged`) - the last one discards the real
+`row AS INTEGER` value the native shim passes, the same established
+"extra trailing arg ignored" ABI rule already used for
+`GuiCheckBoxConnectToggled`/`GuiComboBoxConnectChanged`. Unlike
+`eb-gui-gtk4`, no new native trampoline was needed here at all - real
+Qt6's own per-call lambda-based shims were never subject to the Round 4
+misdelivery bug class in the first place.
+
+`GuiTextView` wraps `eb-qt6`'s already-bound `TextEdit` directly.
+`GuiTextViewSetEditable`'s polarity is inverted from real Qt's own
+`setReadOnly` before crossing the contract boundary, so callers see the
+same "editable" sense as `eb-gui-gtk4`/`eb-gui-haiku`.
+`GuiTextViewGetText` leaks a small per-call buffer, the same documented
+tradeoff as `GuiButtonGetText`/`GuiComboBoxGetSelectedText` (real
+`QTextEdit::toPlainText()` returns a freshly allocated buffer with no
+matching free function in the contract).
+
 ## Verifying
 
 Built and run via `ebc` directly (see "Building" above for why):
@@ -347,7 +395,11 @@ ebc examples/hello_window/src/main.bas -o hello_window \
   running-loop `GuiApplicationQuit` (a single-shot timer's own callback
   calls it): the program exiting promptly rather than hanging proves
   the interval/single-shot/callback-dispatch and quit all work correctly
-  together.
+  together; and `GuiListBoxAddItem`/`GetItemText`/`GetCount`/`Clear`/
+  `GetSelectedIndex`/`SetSelectedIndex`/`ConnectSelectionChanged` and
+  `GuiTextViewSetText`/`GetText`/`SetEditable` (Round 6) round-trip
+  correctly, including a `Clear`-then-re-`AddItem` check confirming the
+  item-text tracking table doesn't leak stale text across a clear.
 - `examples/widgets_form` - a `GuiBox` containing a `GuiLabel` +
   `GuiEntry` + `GuiButton`, clicking the button reads the entry and
   updates the label (confirmed launches and runs without crashing on

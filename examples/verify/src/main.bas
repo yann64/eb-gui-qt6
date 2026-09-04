@@ -245,6 +245,43 @@ CALL GuiSliderSetValue(sliderWidget, 75)
 PRINT "sliderWidget changed count: ", sliderChangedCount
 PRINT "Round 5 widgets (ProgressBar/Slider) ran without crashing"
 
+' 10. Round 6: ListBox/TextView. GuiListBoxGetItemText is backed by this
+' adapter's own item-text tracking table (real QListWidget has no
+' by-index text getter) - this also exercises GuiListBoxClear's own
+' table compaction (add again after Clear, confirm no stale text
+' leaks back in).
+DIM listBox AS GuiListBox
+listBox = NewGuiListBox()
+CALL GuiListBoxAddItem(listBox, "First")
+CALL GuiListBoxAddItem(listBox, "Second")
+PRINT "listbox count after 2 adds: ", GuiListBoxGetCount(listBox)
+PRINT "listbox item 0 text: ", GuiListBoxGetItemText(listBox, 0)
+PRINT "listbox item 1 text: ", GuiListBoxGetItemText(listBox, 1)
+PRINT "listbox selected index before any selection (expect -1): ", GuiListBoxGetSelectedIndex(listBox)
+
+DIM listBoxChangedCount AS INTEGER
+listBoxChangedCount = 0
+SUB OnListBoxSelectionChanged(userData AS ANY PTR)
+    listBoxChangedCount = listBoxChangedCount + 1
+END SUB
+CALL GuiListBoxConnectSelectionChanged(listBox, @OnListBoxSelectionChanged, 0)
+CALL GuiListBoxSetSelectedIndex(listBox, 1)
+PRINT "listbox selected index after SetSelectedIndex(1): ", GuiListBoxGetSelectedIndex(listBox)
+PRINT "listbox selection changed count: ", listBoxChangedCount
+
+CALL GuiListBoxClear(listBox)
+PRINT "listbox count after Clear: ", GuiListBoxGetCount(listBox)
+CALL GuiListBoxAddItem(listBox, "Third")
+PRINT "listbox item 0 text after Clear+re-add (expect Third, not stale): ", GuiListBoxGetItemText(listBox, 0)
+
+DIM textView AS GuiTextView
+textView = NewGuiTextView()
+CALL GuiTextViewSetText(textView, "hello text view")
+PRINT "text view text round-trip: ", GuiTextViewGetText(textView)
+CALL GuiTextViewSetEditable(textView, 0)
+CALL GuiTextViewSetEditable(textView, 1)
+PRINT "Round 6 widgets (ListBox/TextView) ran without crashing"
+
 ' 5. GuiTimer, and (via its own callback) GuiApplicationQuit stopping
 ' GuiApplicationRun - this finally closes the gap this file's own
 ' comment used to flag: GuiTimer is now part of the contract itself, so
