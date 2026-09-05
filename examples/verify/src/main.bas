@@ -289,6 +289,23 @@ PRINT "Round 6 widgets (ListBox/TextView) ran without crashing"
 CALL GuiWidgetSetPreferredSize(goBtn.handle, 200, 60)
 PRINT "Round 7 (GuiWidgetSetPreferredSize) ran without crashing"
 
+' 12. Round 8: GuiTextViewConnectTextChanged - direct pass-through to
+' TextEditConnectTextChanged (already bound, no prerequisite work
+' needed) - verified real via a genuine GuiTextViewSetText call.
+DIM textViewMarker AS INTEGER
+textViewMarker = 24680
+DIM textViewReceived AS ANY PTR
+SUB OnTextViewChanged(userData AS ANY PTR)
+    textViewReceived = userData
+END SUB
+CALL GuiTextViewConnectTextChanged(textView, @OnTextViewChanged, @textViewMarker)
+CALL GuiTextViewSetText(textView, "changed!")
+IF textViewReceived = @textViewMarker THEN
+    PRINT "GuiTextViewConnectTextChanged userData delivery: correct"
+ELSE
+    PRINT "GuiTextViewConnectTextChanged userData delivery: WRONG - regression!"
+END IF
+
 ' 5. GuiTimer, and (via its own callback) GuiApplicationQuit stopping
 ' GuiApplicationRun - this finally closes the gap this file's own
 ' comment used to flag: GuiTimer is now part of the contract itself, so

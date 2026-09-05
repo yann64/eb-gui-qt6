@@ -358,6 +358,13 @@ README for the full Round 7 writeup, including the real Haiku hardware
 finding that turned this into a no-op on ALL THREE backends, not just
 this one.
 
+## Widgets (Round 8) - `GuiTextViewConnectTextChanged`
+
+Zero prerequisite work needed - real `eb-qt6` already had
+`TextEditConnectTextChanged`, and real `QTextEdit::textChanged()`
+itself carries no text parameter, exactly matching this contract
+function's own shape. A pure pass-through.
+
 ## Verifying
 
 Built and run via `ebc` directly (see "Building" above for why):
@@ -412,7 +419,10 @@ ebc examples/hello_window/src/main.bas -o hello_window \
   correctly, including a `Clear`-then-re-`AddItem` check confirming the
   item-text tracking table doesn't leak stale text across a clear; and
   `GuiWidgetSetPreferredSize` (Round 7) runs without crashing (a
-  documented no-op on this backend - see above).
+  documented no-op on this backend - see above); and
+  `GuiTextViewConnectTextChanged` (Round 8) fires correctly on a
+  genuine `GuiTextViewSetText` call, with `userData` delivered
+  correctly.
 - `examples/widgets_form` - a `GuiBox` containing a `GuiLabel` +
   `GuiEntry` + `GuiButton`, clicking the button reads the entry and
   updates the label (confirmed launches and runs without crashing on

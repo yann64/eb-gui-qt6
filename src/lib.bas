@@ -911,3 +911,12 @@ END SUB
 ''' inspection, not assumed (see eb-gui's own README).
 SUB GuiWidgetSetPreferredSize(handle AS ANY PTR, width AS INTEGER, height AS INTEGER)
 END SUB
+
+''' Direct pass-through - real QTextEdit::textChanged() already
+''' carries no text param, exactly matching this contract function's
+''' own shape.
+SUB GuiTextViewConnectTextChanged(tv AS GuiTextView, handler AS ANY PTR, userData AS ANY PTR)
+    DIM realEdit AS TextEdit
+    realEdit.handle = tv.handle
+    CALL TextEditConnectTextChanged(realEdit, handler, userData)
+END SUB
