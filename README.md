@@ -347,6 +347,17 @@ tradeoff as `GuiButtonGetText`/`GuiComboBoxGetSelectedText` (real
 `QTextEdit::toPlainText()` returns a freshly allocated buffer with no
 matching free function in the contract).
 
+## Widgets (Round 7) - settable preferred size, a documented no-op
+
+`GuiWidgetSetPreferredSize` is a documented, accepted no-op on this
+backend - real Qt's own `sizeHint()` is a READ-ONLY virtual query
+(`Q_PROPERTY(... READ sizeHint)`, no `WRITE` accessor), overridable
+only by subclassing `QWidget`, not a settable property on the generic
+base - confirmed via direct header inspection. See `eb-gui`'s own
+README for the full Round 7 writeup, including the real Haiku hardware
+finding that turned this into a no-op on ALL THREE backends, not just
+this one.
+
 ## Verifying
 
 Built and run via `ebc` directly (see "Building" above for why):
@@ -399,7 +410,9 @@ ebc examples/hello_window/src/main.bas -o hello_window \
   `GetSelectedIndex`/`SetSelectedIndex`/`ConnectSelectionChanged` and
   `GuiTextViewSetText`/`GetText`/`SetEditable` (Round 6) round-trip
   correctly, including a `Clear`-then-re-`AddItem` check confirming the
-  item-text tracking table doesn't leak stale text across a clear.
+  item-text tracking table doesn't leak stale text across a clear; and
+  `GuiWidgetSetPreferredSize` (Round 7) runs without crashing (a
+  documented no-op on this backend - see above).
 - `examples/widgets_form` - a `GuiBox` containing a `GuiLabel` +
   `GuiEntry` + `GuiButton`, clicking the button reads the entry and
   updates the label (confirmed launches and runs without crashing on

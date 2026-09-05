@@ -903,3 +903,11 @@ SUB GuiTextViewSetEditable(tv AS GuiTextView, editable AS INTEGER)
         CALL TextEditSetReadOnly(realEdit, 0)
     END IF
 END SUB
+
+''' A documented, accepted no-op - real Qt's own `sizeHint()` is a
+''' READ-ONLY virtual query (`Q_PROPERTY(... READ sizeHint)`, no WRITE
+''' accessor), overridable only by subclassing QWidget - not a settable
+''' property on the generic base - confirmed via direct header
+''' inspection, not assumed (see eb-gui's own README).
+SUB GuiWidgetSetPreferredSize(handle AS ANY PTR, width AS INTEGER, height AS INTEGER)
+END SUB

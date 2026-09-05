@@ -282,6 +282,13 @@ CALL GuiTextViewSetEditable(textView, 0)
 CALL GuiTextViewSetEditable(textView, 1)
 PRINT "Round 6 widgets (ListBox/TextView) ran without crashing"
 
+' 11. Round 7: settable preferred size - a documented no-op on this
+' backend (real Qt's own sizeHint() is a read-only virtual query, not a
+' settable property - see eb-gui's own README). "Didn't crash" is the
+' bar here; the real behavioral proof is on eb-gui-haiku.
+CALL GuiWidgetSetPreferredSize(goBtn.handle, 200, 60)
+PRINT "Round 7 (GuiWidgetSetPreferredSize) ran without crashing"
+
 ' 5. GuiTimer, and (via its own callback) GuiApplicationQuit stopping
 ' GuiApplicationRun - this finally closes the gap this file's own
 ' comment used to flag: GuiTimer is now part of the contract itself, so
